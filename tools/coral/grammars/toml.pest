@@ -1,0 +1,177 @@
+root = { SOI ~ expression ~ (newline ~ expression)* ~ EOI }
+
+expression = {
+    (ws ~ keyval ~ ws ~ comment?) |
+    (ws ~ table ~ ws ~ comment?) |
+    (ws ~ comment?)
+}
+
+
+ws = { wschar* }
+wschar = { " " | "\t" }
+
+newline = { "\n" | "\r\n" }
+
+comment_start_symbol = { "#" }
+non_eol = { !(newline)~ANY }
+comment = { comment_start_symbol ~ non_eol* }
+
+keyval = { key ~ keyval_sep ~ val }
+keyval_sep = { ws ~ "=" ~ ws }
+
+key = { dotted_key | simple_key}
+simple_key = { quoted_key | unquoted_key }
+
+unquoted_key_char = { ASCII_ALPHANUMERIC | "-" | "_" }
+unquoted_key = { unquoted_key_char+ }
+quoted_key = { basic_string | literal_string }
+dotted_key = { simple_key ~ (dot_sep ~ simple_key)+ }
+
+dot_sep = { ws ~ "." ~ ws }
+
+val = { string | boolean | array | inline_table | date_time | float | integer }
+
+string = { ml_basic_string | basic_string | ml_literal_string | literal_string }
+
+basic_string = { quotation_mark ~ basic_char* ~ quotation_mark }
+quotation_mark = { "\"" }
+
+basic_char = { basic_unescaped | escaped }
+basic_unescaped = { !("\u{0022}")~ANY}
+escaped = { escape ~ escape_seq_char }
+
+escape = { "\\" }
+escape_seq_char = {
+    "\"" |
+    "\\" |
+    "b" |
+    "f" |
+    "n" |
+    "r" |
+    "t" |
+    ("u" ~ ASCII_HEX_DIGIT{4}) |
+    ("U" ~ ASCII_HEX_DIGIT{8})
+}
+
+ml_basic_string_delim = { quotation_mark{3} }
+ml_basic_string = { ml_basic_string_delim ~ newline? ~ ml_basic_body ~ ml_basic_string_delim }
+ml_basic_body = { mlb_content* ~ (mlb_quotes ~ mlb_content+ )* ~ mlb_quotes? }
+
+mlb_content = { mlb_char | newline | mlb_escaped_nl }
+mlb_char = { mlb_unescaped | escaped }
+mlb_quotes = { quotation_mark{1,2} }
+mlb_unescaped = { !("\u{0022}")~ANY}
+mlb_escaped_nl = { escape ~ ws ~ newline ~ (wschar | newline)* }
+
+literal_string = { apostrophe ~ literal_char* ~ apostrophe }
+apostrophe = { "'" }
+literal_char = {  !("\u{0027}")~ANY}
+
+ml_literal_string_delim = { apostrophe{3} }
+ml_literal_string = { ml_literal_string_delim ~ newline? ~ ml_literal_body ~ ml_literal_string_delim }
+ml_literal_body = { mll_content* ~ (mll_quotes ~ mll_content+)* ~ mll_quotes? }
+
+mll_content = { mll_char | newline }
+mll_char = {  !("\u{0027}")~ANY}
+mll_quotes = { apostrophe{1,2} }
+
+integer = { dec_int | hex_int | oct_int | bin_int }
+
+minus = { "-" }
+plus = { "+" }
+underscore = { "_" }
+digit1_9 = { '1'..'9' }
+digit0_7 = { '0'..'7' }
+digit0_1 = { '0'..'1' }
+
+hex_prefix = { "0x" }
+oct_prefix = { "0o" }
+bin_prefix = { "0b" }
+
+dec_int = { (minus | plus)? ~ unsigned_dec_int }
+unsigned_dec_int_group = { ASCII_DIGIT | (underscore ~ ASCII_DIGIT) }
+unsigned_dec_int = { ASCII_DIGIT | (digit1_9 ~ unsigned_dec_int_group+) }
+
+
+hex_int_group = { ASCII_HEX_DIGIT | (underscore ~ ASCII_HEX_DIGIT) }
+hex_int = { hex_prefix ~ ASCII_HEX_DIGIT ~ hex_int_group* }
+
+oct_int_group = { digit0_7 | (underscore ~ digit0_7) }
+oct_int = { oct_prefix ~ digit0_7 ~ oct_int_group* }
+
+bin_int_group = { digit0_1 | (underscore ~ digit0_1) }
+bin_int = { bin_prefix ~ digit0_1 ~ bin_int_group* }
+
+
+float_int_part = { dec_int }
+decimal_point = { "." }
+zero_prefixable_int_group = { ASCII_DIGIT | (underscore ~ ASCII_DIGIT) }
+zero_prefixable_int = { ASCII_DIGIT ~ zero_prefixable_int_group* }
+frac = { decimal_point ~ zero_prefixable_int }
+exp = { "e" ~ float_exp_part }
+float_exp_part = { (minus | plus)? ~ zero_prefixable_int }
+
+float_val_normal = { float_int_part ~ (exp | (frac ~ exp?)) }
+special_float_val = { (minus | plus)? ~ (inf | nan) }
+inf = { "inf" }
+nan = { "nan" }
+float = { float_val_normal | special_float_val }
+
+true_ = { "true" }
+false_ = { "false" }
+boolean = { true_ | false_ }
+
+date_time = { offset_date_time | local_date_time | local_date | local_time }
+
+date_fullyear = { ASCII_DIGIT{4} }
+date_month    = { ASCII_DIGIT{2} }
+date_mday     = { ASCII_DIGIT{2} }
+time_delim    = { "T" | " " }
+time_hour     = { ASCII_DIGIT{2} }
+time_minute   = { ASCII_DIGIT{2} }
+time_second   = { ASCII_DIGIT{2} }
+time_secfrac  = { "." ~ ASCII_DIGIT+ }
+time_numoffset = { (plus | minus) ~ time_hour ~ ":" ~ time_minute }
+time_offset   = { "Z" | time_numoffset }
+
+partial_time  = { time_hour ~ ":" ~ time_minute ~ ":" ~ time_second ~ time_secfrac? }
+full_date     = { date_fullyear ~ "-" ~ date_month ~ "-" ~ date_mday }
+full_time     = { partial_time ~ time_offset }
+
+offset_date_time = { full_date ~ time_delim ~ full_time }
+
+local_date_time = { full_date ~ time_delim ~ partial_time }
+
+local_date = { full_date }
+
+local_time = { partial_time }
+
+array_open =  { "[" }
+array_close = { "]" }
+array_sep = { "," }
+
+ws_comment_newline_item = { wschar | (comment? ~ newline) }
+ws_comment_newline = { ws_comment_newline_item* }
+
+array_value_wrapper = { ws_comment_newline ~ val ~ ws_comment_newline }
+array_values = { array_value_wrapper ~ (array_sep ~ array_value_wrapper)* ~ array_sep? }
+
+array = { array_open ~ array_values? ~ ws_comment_newline ~ array_close }
+
+table = { std_table | array_table }
+
+std_table_open  = { "[" ~ ws }
+std_table_close = { ws ~ "]" }
+std_table = { std_table_open ~ key ~ std_table_close }
+
+inline_table_open  = { "{" ~ ws }
+inline_table_close = { ws ~ "}" }
+inline_table_sep   = { ws ~ "," ~ ws }
+
+inline_table_keyvals = { keyval ~ (inline_table_sep ~ keyval)* }
+
+inline_table = { inline_table_open ~ inline_table_keyvals? ~ inline_table_close }
+
+array_table_open  = { "[[" ~ ws }
+array_table_close = { ws ~ "]]" }
+array_table = { array_table_open ~ key ~ array_table_close }

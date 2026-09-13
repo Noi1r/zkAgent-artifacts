@@ -1,0 +1,7 @@
+torch
+transformers
+accelerate
+huggingface_hub
+httpx[socks]
+datasets
+numpy

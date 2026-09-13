@@ -1,0 +1,100 @@
+#include <iostream>
+#include "common/polynomial.h"
+
+cubic_poly::cubic_poly() {a.clear(); b.clear(); c.clear(); d.clear();}
+cubic_poly::cubic_poly(const F &aa, const F &bb, const F &cc, const F &dd) {
+    a = aa;
+    b = bb;
+    c = cc;
+    d = dd;
+}
+
+cubic_poly cubic_poly::operator + (const cubic_poly &x) const {
+    return cubic_poly(a + x.a, b + x.b, c + x.c, d + x.d);
+}
+
+F cubic_poly::eval(const F &x) const {
+    return (((a * x) + b) * x + c) * x + d;
+}
+
+quadratic_poly::quadratic_poly() {a.clear(); b.clear(); c.clear();}
+quadratic_poly::quadratic_poly(const F &aa, const F &bb, const F &cc) {
+    a = aa;
+    b = bb;
+    c = cc;
+}
+
+quadratic_poly quadratic_poly::operator + (const quadratic_poly &x) const {
+    return quadratic_poly(a + x.a, b + x.b, c + x.c);
+}
+
+quadratic_poly quadratic_poly::operator+(const linear_poly &x) const {
+    return quadratic_poly(a, b + x.a, c + x.b);
+}
+
+cubic_poly quadratic_poly::operator * (const linear_poly &x) const {
+    return cubic_poly(a * x.a, a * x.b + b * x.a, b * x.b + c * x.a, c * x.b);
+}
+
+cubic_poly cubic_poly::operator * (const F &x) const {
+    return cubic_poly(a * x, b * x, c * x, d * x);
+}
+
+void cubic_poly::clear() {
+    a.clear(); b.clear(); c.clear(); d.clear();
+}
+
+quadratic_poly quadratic_poly::operator*(const F &x) const {
+    return quadratic_poly(a * x, b * x, c * x);
+}
+
+F quadratic_poly::eval(const F &x) const {
+    return ((a * x) + b) * x + c;
+}
+
+void quadratic_poly::clear() {
+    a.clear(); b.clear(); c.clear();
+}
+
+linear_poly::linear_poly() {a.clear(); b.clear();}
+linear_poly::linear_poly(const F &aa, const F &bb) {
+    a = aa;
+    b = bb;
+}
+linear_poly::linear_poly(const F &x) {
+    a.clear();
+    b = x;
+}
+
+linear_poly linear_poly::operator + (const linear_poly &x) const {
+    return linear_poly(a + x.a, b + x.b);
+}
+
+quadratic_poly linear_poly::operator * (const linear_poly &x) const
+{
+    if(x.a.isZero())
+        return quadratic_poly(F_ZERO, a * x.b, b * x.b);
+    else if(x.b.isZero())
+        return quadratic_poly(a * x.a,   b * x.a, F_ZERO);
+    else
+    {
+        const F leading = a * x.a;
+        const F constant = b * x.b;
+        return quadratic_poly(
+            leading, (a + b) * (x.a + x.b) - leading - constant,
+            constant);
+    }
+}
+
+linear_poly linear_poly::operator*(const F &x) const {
+    return linear_poly(a * x, b * x);
+}
+
+F linear_poly::eval(const F &x) const
+{
+    return x.isZero() ? b :a * x + b;
+}
+
+void linear_poly::clear() {
+    a.clear(); b.clear();
+}

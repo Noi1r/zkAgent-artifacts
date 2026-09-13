@@ -1,0 +1,46 @@
+root = { SOI ~ (object | array) ~ EOI }
+
+WHITESPACE = { " " | "\t" | "\r" | "\n" }
+
+colon = { ":" }
+
+comma = { "," }
+
+open_brace = { "{" }
+close_brace = { "}" }
+open_bracket = { "[" }
+close_bracket = { "]" }
+
+quote = { "\"" }
+object = {
+    open_brace ~ close_brace |
+    open_brace ~ pair ~ (comma ~ pair)* ~ close_brace
+}
+
+
+pair = { string ~ colon ~ value }
+
+array = {
+    open_bracket ~ close_bracket |
+    open_bracket ~ value ~ (comma ~ value)* ~ close_bracket
+}
+
+value = { object | array | string | number | boolean | null }
+
+boolean = { "true" | "false" }
+
+null = { "null" }
+
+string = { quote ~ inner ~ quote }
+inner = { char* }
+char = {
+    !(quote | "\\") ~ ANY
+    | "\\" ~ ("\"" | "\\" | "/" | "b" | "f" | "n" | "r" | "t")
+    | "\\" ~ ("u" ~ ASCII_HEX_DIGIT{4})
+}
+
+integer_part = { "-"?~ASCII_DIGIT ~ ASCII_DIGIT* }
+decimal_part = { "." ~ ASCII_DIGIT+ }
+exponential_part = { ("e" | "E") ~ ("+" | "-")? ~ ASCII_DIGIT+ }
+
+number = { integer_part ~ decimal_part? ~ exponential_part? }

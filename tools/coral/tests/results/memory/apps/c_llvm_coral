@@ -1,0 +1,253 @@
+	Command being timed: "./target/release/coral -d ./tests/test_docs/c/llvm_test_puzzle.txt -g ./grammars/c_simple.pest -b 543 -m ./tests/results/timings/apps/c_llvm_coral.txt --prove"
+	User time (seconds): 58.00
+	System time (seconds): 2.31
+	Percent of CPU this job got: 618%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:09.75
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 2408192
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 382265
+	Voluntary context switches: 0
+	Involuntary context switches: 194306
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 0
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 16384
+	Exit status: 0
+	Command being timed: "./target/release/coral -d ./tests/test_docs/c/llvm_test_puzzle.txt -g ./grammars/c_simple.pest -b 543 -m ./tests/results/timings/apps/c_llvm_coral.txt --prove"
+	User time (seconds): 57.77
+	System time (seconds): 2.22
+	Percent of CPU this job got: 637%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:09.41
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 2022800
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 367047
+	Voluntary context switches: 0
+	Involuntary context switches: 173697
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 0
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 16384
+	Exit status: 0
+	Command being timed: "./target/release/coral -d ./tests/test_docs/c/llvm_test_puzzle.txt -g ./grammars/c_simple.pest -b 543 -m ./tests/results/timings/apps/c_llvm_coral.txt --prove"
+	User time (seconds): 58.23
+	System time (seconds): 2.01
+	Percent of CPU this job got: 657%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:09.16
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 2483792
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 352684
+	Voluntary context switches: 1
+	Involuntary context switches: 138981
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 0
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 16384
+	Exit status: 0
+	Command being timed: "./target/release/coral -d ./tests/test_docs/c/llvm_test_puzzle.txt -g ./grammars/c_simple.pest -b 543 -m ./tests/results/timings/apps/c_llvm_coral.txt --prove"
+	User time (seconds): 59.42
+	System time (seconds): 2.51
+	Percent of CPU this job got: 596%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:10.38
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 2216208
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 377902
+	Voluntary context switches: 1
+	Involuntary context switches: 245619
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 0
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 16384
+	Exit status: 0
+	Command being timed: "./target/release/coral -d ./tests/test_docs/c/llvm_test_puzzle.txt -g ./grammars/c_simple.pest -b 543 -m ./tests/results/timings/apps/c_llvm_coral.txt --prove"
+	User time (seconds): 58.75
+	System time (seconds): 2.83
+	Percent of CPU this job got: 627%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:09.81
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 1986464
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 387121
+	Voluntary context switches: 2
+	Involuntary context switches: 253019
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 0
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 16384
+	Exit status: 0
+	Command being timed: "./target/release/coral -d ./tests/test_docs/c/llvm_test_puzzle.txt -g ./grammars/c_simple.pest -b 543 -m ./tests/results/timings/apps/c_llvm_coral.txt --prove"
+	User time (seconds): 59.10
+	System time (seconds): 2.13
+	Percent of CPU this job got: 659%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:09.29
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 2650544
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 321772
+	Voluntary context switches: 2
+	Involuntary context switches: 170143
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 0
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 16384
+	Exit status: 0
+	Command being timed: "./target/release/coral -d ./tests/test_docs/c/llvm_test_puzzle.txt -g ./grammars/c_simple.pest -b 543 -m ./tests/results/timings/apps/c_llvm_coral.txt --prove"
+	User time (seconds): 58.75
+	System time (seconds): 1.86
+	Percent of CPU this job got: 699%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:08.66
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 2785648
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 323819
+	Voluntary context switches: 0
+	Involuntary context switches: 116698
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 0
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 16384
+	Exit status: 0
+	Command being timed: "./target/release/coral -d ./tests/test_docs/c/llvm_test_puzzle.txt -g ./grammars/c_simple.pest -b 543 -m ./tests/results/timings/apps/c_llvm_coral.txt --prove"
+	User time (seconds): 57.69
+	System time (seconds): 2.24
+	Percent of CPU this job got: 618%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:09.69
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 2394224
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 368720
+	Voluntary context switches: 8
+	Involuntary context switches: 172184
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 0
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 16384
+	Exit status: 0
+	Command being timed: "./target/release/coral -d ./tests/test_docs/c/llvm_test_puzzle.txt -g ./grammars/c_simple.pest -b 543 -m ./tests/results/timings/apps/c_llvm_coral.txt --prove"
+	User time (seconds): 59.67
+	System time (seconds): 2.27
+	Percent of CPU this job got: 644%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:09.61
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 2463488
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 340474
+	Voluntary context switches: 3
+	Involuntary context switches: 209971
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 0
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 16384
+	Exit status: 0
+	Command being timed: "./target/release/coral -d ./tests/test_docs/c/llvm_test_puzzle.txt -g ./grammars/c_simple.pest -b 543 -m ./tests/results/timings/apps/c_llvm_coral.txt --prove"
+	User time (seconds): 58.14
+	System time (seconds): 2.14
+	Percent of CPU this job got: 623%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:09.67
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 2267408
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 344721
+	Voluntary context switches: 1
+	Involuntary context switches: 188815
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 0
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 16384
+	Exit status: 0
+	Command being timed: "./target/release/coral -d ./tests/test_docs/c/llvm_test_puzzle.txt -g ./grammars/c_simple.pest -b 543 -m ./tests/results/timings/apps/c_llvm_coral.txt --prove"
+	User time (seconds): 58.37
+	System time (seconds): 1.93
+	Percent of CPU this job got: 620%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:09.72
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 2565344
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 326496
+	Voluntary context switches: 0
+	Involuntary context switches: 190675
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 0
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 16384
+	Exit status: 0

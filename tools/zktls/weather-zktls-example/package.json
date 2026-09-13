@@ -1,0 +1,15 @@
+{
+  "name": "weather-zktls-example",
+  "version": "1.0.0",
+  "description": "Use zkTLS to prove that weather data originates from the Open-Meteo API",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@primuslabs/zktls-core-sdk": "^0.2.2",
+    "dotenv": "^17.2.3",
+    "tslib": "^2.6.2"
+  }
+}

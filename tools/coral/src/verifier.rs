@@ -1,0 +1,112 @@
+use crate::{prover::ProverOutput, solver::*, util::*};
+use ark_bn254::Bn254;
+use ark_ff::PrimeField as arkPrimeField;
+use ark_poly_commit::kzg10;
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use nova_snark::nova::CompressedSNARK;
+use nova_snark::{
+    errors::NovaError,
+    nova::{PublicParams, VerifierKey},
+    traits::ROConstants,
+};
+use segmented_circuit_memory::memory::nebula::RunningMem;
+
+use std::usize;
+
+#[cfg(feature = "metrics")]
+use metrics::metrics::{log, log::Component};
+
+pub struct VerifierInfo<ArkF: arkPrimeField> {
+    pub tree_size: usize,
+    pub pp: PublicParams<E1, E2, C1>,
+    pub num_steps: usize,
+    pub mem: RunningMem<AF>,
+    pub snark_vk: VerifierKey<E1, E2, C1, S1, S2>,
+    pub perm_chal: Vec<ArkF>,
+    pub r0_consts: ROConstants<E1>
+}
+
+#[derive(CanonicalSerialize, CanonicalDeserialize, Debug)]
+pub struct VerifierDocCommit {
+    pub doc_commit: kzg10::Commitment<Bn254>,
+    pub doc_commit_vk: kzg10::VerifierKey<Bn254>,
+}
+
+pub fn setup(empty_circuit: &mut CoralStepCircuit<AF>) -> VerifierInfo<AF> {
+    #[cfg(feature = "metrics")]
+    log::tic(Component::Generator, "nova_pp_gen_v");
+    let pp = gen_pp(empty_circuit);
+    #[cfg(feature = "metrics")]
+    log::stop(Component::Generator, "nova_pp_gen_v");
+
+    #[cfg(feature = "metrics")]
+    log::tic(Component::Verifier, "snark_params_v");
+    let (_, vk) = CompressedSNARK::<_, _, _, S1, S2>::setup(&pp).unwrap();
+
+    #[cfg(feature = "metrics")]
+    log::stop(Component::Verifier, "snark_params_v");
+
+    VerifierInfo {
+        tree_size: empty_circuit.tree_size_usize,
+        pp,
+        num_steps: usize::div_ceil(empty_circuit.tree_size_usize, empty_circuit.batch_size),
+        mem: empty_circuit.mem.clone().unwrap(),
+        snark_vk: vk,
+        perm_chal: empty_circuit.mem.as_ref().unwrap().perm_chal.clone(),
+        r0_consts: ROConstants::<E1>::default()
+    }
+}
+
+pub fn verify(
+    p_o: &mut ProverOutput,
+    v_i: VerifierInfo<AF>,
+    v_dc: VerifierDocCommit,
+) -> Result<(), NovaError> {
+    #[cfg(feature = "metrics")]
+    log::tic(Component::Verifier, "full_verify");
+
+    #[cfg(feature = "metrics")]
+    log::tic(Component::Verifier, "snark_verify");
+
+    let comp_snark_result = p_o
+        .compressed_snark
+        .verify(&v_i.snark_vk, v_i.num_steps, &p_o.z_0);
+    assert!(comp_snark_result.is_ok());
+
+    #[cfg(feature = "metrics")]
+    log::stop(Component::Verifier, "snark_verify");
+
+    let (zn, ci) = comp_snark_result.unwrap();
+
+    #[cfg(feature = "metrics")]
+    log::tic(Component::Verifier, "eq_checks");
+
+    v_i.mem.verifier_checks(&zn, &ci, v_i.r0_consts);
+    #[cfg(feature = "metrics")]
+    {
+        log::stop(Component::Verifier, "eq_checks");
+        log::tic(Component::Verifier, "doc_commit_check");
+    }
+
+    let eval_offset = 13;
+    let claimed_eval = zn[eval_offset];
+    let kzg_check = ArkKZG::check(
+        &v_dc.doc_commit_vk,
+        &v_dc.doc_commit,
+        v_i.perm_chal[0],
+        segmented_circuit_memory::bellpepper::nova_to_ark_field(&claimed_eval),
+        p_o.doc_commit_proof.as_ref().unwrap(),
+    )
+    .unwrap();
+    assert!(kzg_check);
+
+    println!("Verified Successfully!");
+
+    #[cfg(feature = "metrics")]
+    log::tic(Component::Verifier, "doc_commit_check");
+
+    #[cfg(feature = "metrics")]
+    log::stop(Component::Verifier, "full_verify");
+
+    Ok(())
+}

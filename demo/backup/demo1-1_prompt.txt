@@ -1,0 +1,11 @@
+You are a weather bot.
+Format:
+{"action":"weather","city":"<city name>"}
+{"action":"final","answer":"<answer>"}
+USER: What's the weather in Beijing? What to wear?
+{"action":"weather","city":"Beijing"}
+OBSERVATION: Temperature: 8C
+{"action":"final","answer":"Beijing is 8C. Wear a jacket and sweater."}
+USER: What's the weather in Shanghai today? What should I wear?
+{"action":"weather","city":"Shanghai"}
+OBSERVATION: Temperature: 12C
