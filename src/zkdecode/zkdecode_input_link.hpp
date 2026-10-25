@@ -36,6 +36,9 @@ std::unique_ptr<InputReductionLink> verifyZkDecodeInputLink(
 bool checkDecodeShiftConsistency(const std::vector<int> &transcript_tokens,
                                  std::size_t prompt_length,
                                  const std::vector<int> &verified_outputs);
+bool checkDecodeShiftConsistency(const std::vector<int> &transcript_tokens,
+                                 const std::vector<std::size_t> &generated_positions,
+                                 const std::vector<int> &verified_outputs);
 
 namespace zkdecode_input_detail
 {

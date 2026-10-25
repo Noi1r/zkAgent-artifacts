@@ -7,9 +7,11 @@
 #include "zkdecode/zkdecode_input_link.hpp"
 #include "zkdecode/zkdecode_prover.hpp"
 #include "zkdecode/zkdecode_verifier.hpp"
+#include "zkdecode/zkdecode_lookup.hpp"
 #include "lookup/lookup_input_routing_compiled.hpp"
 #include "gkr/input_routing_compiled.hpp"
 #include "transformer_benchmark_profile.hpp"
+#include "generation_mask.hpp"
 #include "benchmark_report.hpp"
 #include "gkr/verifier.hpp"
 #include "gkr/wiring_compiled.hpp"
@@ -22,6 +24,7 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <limits>
 #include <stdexcept>
 #include <string>
 #include <sys/stat.h>
@@ -207,7 +210,10 @@ void print_usage(const char* program) {
          << "  totals follow the roles that execute the work.\n\n"
          << "Options:\n"
          << "  --seq-len N             Full-sequence length (default: 32)\n"
-         << "  --prompt-len N          Required for table6-greedy; prove T-N generated tokens\n"
+         << "  --prompt-len N          Table 6 suffix-only generation; alternative to --generation-mask\n"
+         << "  --generation-mask FILE  Public mask: T bits (0=input, 1=generated); permits interleaved spans\n"
+         << "                          Supply exactly one of --prompt-len and --generation-mask.\n"
+         << "  --decode-batch-size N   Table 6 maximum generated tokens per decode proof (default: 0, one proof)\n"
          << "  --threads N             OpenMP threads (default: 32)\n"
          << "  --depth N               Override model layer count\n"
          << "  --heads N               Override attention head count\n"
@@ -239,10 +245,14 @@ int main(int argc, char** argv) {
 
     string model_dir;
     string token_file;
+    string generation_mask_file;
     string online_profile_file;
     string cache_dir = "./cache";
     int seq_len = 32;
     int prompt_len = -1;
+    std::size_t decode_batch_size = 0;
+    bool prompt_len_provided = false;
+    bool explicit_generation_mask = false;
     int threads = 32;
     int depth = 0;
     int heads = 0;
@@ -279,7 +289,32 @@ int main(int argc, char** argv) {
         else if (strcmp(argv[i], "--token-file") == 0) token_file = require_value(argv[i]);
         else if (strcmp(argv[i], "--online-profile") == 0) online_profile_file = require_value(argv[i]);
         else if (strcmp(argv[i], "--seq-len") == 0) seq_len = atoi(require_value(argv[i]));
-        else if (strcmp(argv[i], "--prompt-len") == 0) prompt_len = atoi(require_value(argv[i]));
+        else if (strcmp(argv[i], "--prompt-len") == 0) {
+            prompt_len = atoi(require_value(argv[i]));
+            prompt_len_provided = true;
+        }
+        else if (strcmp(argv[i], "--generation-mask") == 0) {
+            generation_mask_file = require_value(argv[i]);
+            explicit_generation_mask = true;
+        }
+        else if (strcmp(argv[i], "--decode-batch-size") == 0) {
+            const string value = require_value(argv[i]);
+            std::size_t parsed = 0;
+            bool valid = !value.empty();
+            for (const char digit : value) {
+                if (digit < '0' || digit > '9' ||
+                    parsed > (std::numeric_limits<std::size_t>::max() - (digit - '0')) / 10) {
+                    valid = false;
+                    break;
+                }
+                parsed = parsed * 10 + (digit - '0');
+            }
+            if (!valid) {
+                cerr << "--decode-batch-size requires a nonnegative integer" << endl;
+                return 1;
+            }
+            decode_batch_size = parsed;
+        }
         else if (strcmp(argv[i], "--threads") == 0) threads = atoi(require_value(argv[i]));
         else if (strcmp(argv[i], "--depth") == 0) { depth = atoi(require_value(argv[i])); depth_override = true; }
         else if (strcmp(argv[i], "--heads") == 0) { heads = atoi(require_value(argv[i])); heads_override = true; }
@@ -335,14 +370,30 @@ int main(int argc, char** argv) {
         }
         const bool require_decode = benchmark_profile == TransformerBenchmarkProfile::Table6Greedy;
         const bool full_inference = require_decode;
-        if (require_decode && (prompt_len <= 0 || prompt_len >= seq_len))
+        if (require_decode && prompt_len_provided == explicit_generation_mask)
+            throw invalid_argument("table6-greedy requires exactly one of --prompt-len and --generation-mask");
+        if (require_decode && !explicit_generation_mask && (prompt_len <= 0 || prompt_len >= seq_len))
             throw invalid_argument("table6-greedy requires 1 <= --prompt-len < --seq-len");
-        if (!require_decode && prompt_len != -1)
-            throw invalid_argument("--prompt-len is only used by table6-greedy");
+        if (!require_decode && decode_batch_size != 0)
+            throw invalid_argument("--decode-batch-size is only used by table6-greedy");
+        if (!require_decode && (prompt_len_provided || explicit_generation_mask))
+            throw invalid_argument("generation selection is only used by table6-greedy");
         if (seq_len <= 0 || (!full_inference && !is_power_of_two(seq_len))) {
             throw invalid_argument("sequence length must be positive (Table 5 also requires a power of two)");
         }
         if (threads <= 0) throw invalid_argument("--threads must be positive");
+
+        // The caller supplies the public generation statement, not the prover.
+        // Both proof construction and verification use this exact position set.
+        const std::vector<std::size_t> generation_positions = !require_decode
+            ? std::vector<std::size_t>{}
+            : explicit_generation_mask
+                ? generation_mask::load(generation_mask_file, static_cast<std::size_t>(seq_len))
+                : generation_mask::suffix(static_cast<std::size_t>(prompt_len), static_cast<std::size_t>(seq_len));
+
+        const auto decode_position_batches = require_decode
+            ? generation_mask::partition(generation_positions, decode_batch_size)
+            : std::vector<std::vector<std::size_t>>{};
 
         int config_depth = 0, config_heads = 0, config_head_dim = 0;
         int config_hidden = 0, config_ffn = 0, config_vocab = 0;
@@ -417,7 +468,21 @@ int main(int argc, char** argv) {
             report.field("model", "GPT-2, " + to_string(depth) + " layers, Q" + to_string(model.quant_plan.q_bits));
             report.field("sequence", seq_len);
             if (model.len != seq_len) report.field("padded_sequence", model.len);
-            report.field("prompt", require_decode ? to_string(prompt_len) : "N/A");
+            report.field("prompt", require_decode
+                ? to_string(generation_mask::initialPromptLength(generation_positions)) : "N/A");
+            if (require_decode) {
+                report.field("generation selection", explicit_generation_mask ? "public mask" : "contiguous suffix");
+                report.field("generated tokens", generation_positions.size());
+                string batch_sizes;
+                for (const auto& positions : decode_position_batches) {
+                    if (!batch_sizes.empty()) batch_sizes += ',';
+                    batch_sizes += to_string(positions.size());
+                }
+                report.field("decode batch sizes", batch_sizes);
+                report.field("decode range limb bits", zkdecode_detail::RangeLimbBits);
+                if (explicit_generation_mask)
+                    report.field("generation positions", generation_mask::formatRanges(generation_positions));
+            }
             report.field("threads", threads);
             report.field("lookup", string(lookup_backend == LookupBackend::Shout ? "SHOUT" : "LogUp-GKR") +
                 ", max-chunks=" + to_string(lookup_max_chunks));
@@ -517,49 +582,79 @@ int main(int argc, char** argv) {
         const double initial_preparation_seconds = chrono::duration<double>(
             chrono::steady_clock::now() - preparation_start).count();
 
-        CompiledInputTensorView decode_view;
-        ZkDecodeStatement decode_statement;
-        ZkDecodeVerifierKey decode_key;
+        struct DecodeBatch {
+            CompiledInputTensorView view;
+            ZkDecodeStatement statement;
+            ZkDecodeVerifierKey key;
+            std::vector<std::vector<ll>> logits;
+            ZkDecodeProof proof;
+            InputReductionLink prover_claim;
+            std::unique_ptr<InputReductionLink> verifier_claim;
+        };
+        std::vector<DecodeBatch> decode_batches(decode_position_batches.size());
         double decode_routing_seconds = 0.0, decode_key_seconds = 0.0, decode_witness_seconds = 0.0;
-        string decode_routing_access = "not-applicable";
-        std::vector<std::vector<ll>> decode_logits;
         if (require_decode) {
-            auto& params = decode_statement.parameters;
-            params.kind = ZkDecodeProofKind::Greedy;
-            params.lookup_backend = lookup_backend;
-            params.token_count = seq_len - prompt_len;
-            params.vocab_size = vocab;
             if (model.lm_head_output_offset <= 0 || model.quant_plan.logit_bound < 0 ||
                 model.quant_plan.logit_bound >= (ll(1) << 125) - 1)
                 throw invalid_argument("LM-head source/bound is not supported by the native decoder");
-            params.bound = model.quant_plan.logit_bound + 1;
-            const InputTensorViewSpec view_spec{
-                p.C.circuit[0].bit_length,
-                std::size_t(model.lm_head_output_offset) + std::size_t(prompt_len - 1) * vocab,
-                std::size_t(seq_len - prompt_len), std::size_t(vocab), std::size_t(vocab)};
-            const string view_file = cache_file + ".logits-prompt" + to_string(prompt_len) + ".plan";
-            const auto start = chrono::steady_clock::now();
-            if (cache_loaded && use_cache && !update_cache && ifstream(view_file, ios::binary).good()) {
-                decode_view = CompiledInputTensorView::loadFromFile(view_file, view_spec);
-                decode_routing_access = "cache-load";
-            } else {
-                decode_view = CompiledInputTensorView::build(view_spec);
-                decode_routing_access = "built";
-                if (use_cache) { ensure_directory(cache_dir); decode_view.saveToFile(view_file); }
-            }
-            decode_routing_seconds = chrono::duration<double>(chrono::steady_clock::now() - start).count();
-            if (!prepare_only) {
-                const auto witness_start = chrono::steady_clock::now();
-                decode_statement.output_tokens.assign(model.input_tokens.begin() + prompt_len, model.input_tokens.end());
-                decode_logits = prepareZkDecodeInputWitness(p.val[0], view_spec, params.bound);
-                decode_witness_seconds = chrono::duration<double>(chrono::steady_clock::now() - witness_start).count();
+            for (std::size_t index = 0; index < decode_position_batches.size(); ++index) {
+                auto& batch = decode_batches[index];
+                const auto& positions = decode_position_batches[index];
+                auto& params = batch.statement.parameters;
+                params.kind = ZkDecodeProofKind::Greedy;
+                params.lookup_backend = lookup_backend;
+                params.token_count = static_cast<int>(positions.size());
+                params.vocab_size = vocab;
+                params.bound = model.quant_plan.logit_bound + 1;
+                InputTensorViewSpec view_spec{
+                    p.C.circuit[0].bit_length,
+                    std::size_t(model.lm_head_output_offset),
+                    positions.size(), std::size_t(vocab), std::size_t(vocab)};
+                string view_file;
+                if (explicit_generation_mask || decode_batch_size != 0) {
+                    FiatShamirTranscript mask_cache_key;
+                    mask_cache_key.append_u64(0x47454e4d41534b31ULL); // GENMASK1
+                    mask_cache_key.append_u64(static_cast<std::size_t>(seq_len));
+                    mask_cache_key.append_u64(positions.size());
+                    const auto domain = view_spec.inputDomain();
+                    if (view_spec.offset >= domain || view_spec.columns > domain - view_spec.offset)
+                        throw invalid_argument("LM-head source exceeds the committed input");
+                    for (const auto position : positions) {
+                        if (position - 1 > (domain - view_spec.offset - view_spec.columns) / view_spec.row_stride)
+                            throw invalid_argument("generated token's logit row exceeds the committed input");
+                        view_spec.row_offsets.push_back(view_spec.offset + (position - 1) * view_spec.row_stride);
+                        mask_cache_key.append_u64(position);
+                    }
+                    view_file = cache_file + ".logits-mask-" + mask_cache_key.challenge().getStr(16) + ".plan";
+                } else {
+                    view_spec.offset += std::size_t(prompt_len - 1) * view_spec.row_stride;
+                    view_file = cache_file + ".logits-prompt" + to_string(prompt_len) + ".plan";
+                }
+                view_spec.validate();
+                const auto start = chrono::steady_clock::now();
+                if (cache_loaded && use_cache && !update_cache && ifstream(view_file, ios::binary).good()) {
+                    batch.view = CompiledInputTensorView::loadFromFile(view_file, view_spec);
+                } else {
+                    batch.view = CompiledInputTensorView::build(view_spec);
+                    if (use_cache) { ensure_directory(cache_dir); batch.view.saveToFile(view_file); }
+                }
+                decode_routing_seconds += chrono::duration<double>(chrono::steady_clock::now() - start).count();
+                if (!prepare_only) {
+                    const auto witness_start = chrono::steady_clock::now();
+                    batch.statement.output_tokens.reserve(positions.size());
+                    for (const auto position : positions)
+                        batch.statement.output_tokens.push_back(model.input_tokens[position]);
+                    batch.logits = prepareZkDecodeInputWitness(p.val[0], view_spec, params.bound);
+                    decode_witness_seconds += chrono::duration<double>(chrono::steady_clock::now() - witness_start).count();
+                }
             }
         }
         auto prepare_decode_key = [&]() {
-            if (!require_decode) return;
             const auto start = chrono::steady_clock::now();
-            decode_key = prepareZkDecodeVerifierKey(decode_statement.parameters, input_srs.pk, input_srs.vk, threads);
-            decode_key_seconds = chrono::duration<double>(chrono::steady_clock::now() - start).count();
+            for (auto& batch : decode_batches)
+                batch.key = prepareZkDecodeVerifierKey(batch.statement.parameters, input_srs.pk, input_srs.vk, threads);
+            if (require_decode)
+                decode_key_seconds = chrono::duration<double>(chrono::steady_clock::now() - start).count();
         };
 
         ApeShape ape_shape;
@@ -594,8 +689,9 @@ int main(int argc, char** argv) {
         if (prepare_only && full_inference) {
             SRSPlan key_plan;
             key_plan.mv_vars = (ape_shape.input_variables + 1) / 2;
-            if (require_decode) key_plan.mv_vars = max(key_plan.mv_vars,
-                MVKZG_SRS::min_vars_for_size(zkDecodeRequiredGenerators(decode_statement.parameters)));
+            for (const auto& batch : decode_batches)
+                key_plan.mv_vars = max(key_plan.mv_vars,
+                    MVKZG_SRS::min_vars_for_size(zkDecodeRequiredGenerators(batch.statement.parameters)));
             srs.setup_cached(key_plan, cache_dir);
             prepare_ape();
             prepare_decode_key();
@@ -671,7 +767,8 @@ int main(int argc, char** argv) {
             max(input_columns, lookupBundleRequiredGenerators(
                 lookup_witness, lookup_backend,
                 static_cast<std::size_t>(lookup_max_chunks))));
-        if (require_decode) generator_count = max(generator_count, zkDecodeRequiredGenerators(decode_statement.parameters));
+        for (const auto& batch : decode_batches)
+            generator_count = max(generator_count, zkDecodeRequiredGenerators(batch.statement.parameters));
         const int mv_vars = MVKZG_SRS::min_vars_for_size(generator_count);
         const auto srs_start = chrono::steady_clock::now();
         ensure_directory(cache_dir);
@@ -775,28 +872,40 @@ int main(int argc, char** argv) {
         }
         check_transcript_stage(prover_transcript, verifier_transcript, "embedding", debug);
         record_profile_checkpoint("embedding");
-        ZkDecodeProof decode_proof;
-        DecodeProofStats decode_prover_stats;
-        InputReductionLink decode_prover_claim;
-        std::unique_ptr<InputReductionLink> decode_verifier_claim;
+        double decode_prover_seconds = 0.0, decode_setup_seconds = 0.0;
         double decode_verifier_seconds = 0.0;
+        std::size_t decode_payload_bytes = 0;
+        bool decode_verified = false;
         bool shift_verified = false;
         if (require_decode) {
-            const ZkDecodeInputContext decode_context{decode_view, gkr_input_commitment.rows, model.quant_plan.logit_scale};
-            ZkDecodeProver decoder(input_srs.pk, input_srs.vk, threads);
-            const auto input_size_before = p.val[0].size();
-            auto generated = proveZkDecodeInputLink(decoder, decode_logits, decode_statement, decode_key,
-                decode_context, prover_transcript, decode_prover_claim);
-            decode_prover_stats = std::move(generated.stats);
-            decode_proof = std::move(generated.proof);
-            if (p.val[0].size() != input_size_before) throw logic_error("decoder modified GKR input shape");
-            const auto start = chrono::steady_clock::now();
-            decode_verifier_claim = verifyZkDecodeInputLink(decode_statement, decode_proof, decode_key,
-                decode_context, input_srs.vk, verifier_transcript);
-            shift_verified = decode_verifier_claim && checkDecodeShiftConsistency(
-                model.input_tokens, prompt_len, decode_proof.output_tokens);
-            decode_verifier_seconds = chrono::duration<double>(chrono::steady_clock::now() - start).count();
-            if (!shift_verified) throw runtime_error("native decode/shift checks failed");
+            // Reconstruct the expected partition from the verifier's public positions,
+            // never from proof metadata. Every expected batch must verify and link.
+            const auto verifier_batches = generation_mask::partition(generation_positions, decode_batch_size);
+            if (decode_batches.empty() || decode_batches.size() != verifier_batches.size())
+                throw runtime_error("decode batch count does not cover the public generation positions");
+            for (std::size_t index = 0; index < verifier_batches.size(); ++index) {
+                auto& batch = decode_batches[index];
+                const ZkDecodeInputContext decode_context{batch.view, gkr_input_commitment.rows, model.quant_plan.logit_scale};
+                ZkDecodeProver decoder(input_srs.pk, input_srs.vk, threads);
+                const auto input_size_before = p.val[0].size();
+                auto generated = proveZkDecodeInputLink(decoder, batch.logits, batch.statement, batch.key,
+                    decode_context, prover_transcript, batch.prover_claim);
+                if (!generated.stats.success) throw runtime_error("native decode proof generation failed");
+                decode_prover_seconds += generated.stats.prover_time;
+                decode_setup_seconds += generated.stats.setup_time;
+                batch.proof = std::move(generated.proof);
+                decode_payload_bytes += zkDecodeProofPayloadBytes(batch.proof);
+                if (p.val[0].size() != input_size_before) throw logic_error("decoder modified GKR input shape");
+                const auto start = chrono::steady_clock::now();
+                batch.verifier_claim = verifyZkDecodeInputLink(batch.statement, batch.proof, batch.key,
+                    decode_context, input_srs.vk, verifier_transcript);
+                const bool batch_shift_verified = batch.verifier_claim && checkDecodeShiftConsistency(
+                    model.input_tokens, verifier_batches[index], batch.proof.output_tokens);
+                decode_verifier_seconds += chrono::duration<double>(chrono::steady_clock::now() - start).count();
+                if (!batch_shift_verified) throw runtime_error("native decode/shift checks failed");
+            }
+            decode_verified = true;
+            shift_verified = true;
         }
         check_transcript_stage(prover_transcript, verifier_transcript, "decode", debug);
         record_profile_checkpoint("decode");
@@ -839,8 +948,11 @@ int main(int argc, char** argv) {
             verifier_input_link.appendEvaluationClaims(*embedding_verifier_claim);
         }
         if (require_decode) {
-            prover_input_link.appendEvaluationClaims(decode_prover_claim);
-            verifier_input_link.appendEvaluationClaims(*decode_verifier_claim);
+            for (const auto& batch : decode_batches) {
+                if (!batch.verifier_claim) throw runtime_error("missing verified decode batch input claim");
+                prover_input_link.appendEvaluationClaims(batch.prover_claim);
+                verifier_input_link.appendEvaluationClaims(*batch.verifier_claim);
+            }
         }
         verifier v(&p, p.C, &input_srs.pk, &input_srs.vk, debug);
         v.setGkrKeys(gkr_keys.prover, gkr_keys.verifier);
@@ -895,7 +1007,7 @@ int main(int argc, char** argv) {
         const bool verified =
             gkr_verified && lookup_proof.verified && composition_verified &&
             (!full_inference || embedding_verifier_claim != nullptr) &&
-            (!require_decode || (decode_verifier_claim && shift_verified));
+            (!require_decode || (decode_verified && shift_verified));
         record_profile_checkpoint("gkr");
 
         const double role_prover_seconds =
@@ -903,7 +1015,7 @@ int main(int argc, char** argv) {
             + (require_lookup_link ? lookup_link.prover_time : 0.0)
             + (full_inference ? commit_seconds + embedding_prover_seconds : 0.0)
             + context_prover_seconds
-            + (require_decode ? decode_prover_stats.prover_time : 0.0);
+            + decode_prover_seconds;
         const double role_verifier_seconds =
             gkr_replay_verifier_seconds + lookup_proof.verifier_time
             + (require_lookup_link ? lookup_link.verifier_time : 0.0)
@@ -915,7 +1027,7 @@ int main(int argc, char** argv) {
             + decode_routing_seconds
             + decode_key_seconds
             + decode_witness_seconds
-            + (require_decode ? decode_prover_stats.setup_time : 0.0)
+            + decode_setup_seconds
             + ape_prepare_seconds
             + lookup_witness_seconds
             + compiled_lookup_input_routing_prepare_seconds
@@ -936,7 +1048,7 @@ int main(int argc, char** argv) {
         const std::size_t proof_payload_bytes = gkr_proof.cryptographicPayloadBytes()
             + lookup_proof.proof_size_bytes + input_commitment_bytes
             + (full_inference ? embedding_proof.cryptographicPayloadBytes() : 0)
-            + (require_decode ? zkDecodeProofPayloadBytes(decode_proof) : 0)
+            + decode_payload_bytes
             + (require_lookup_link ? lookup_link.proof_size_bytes : 0);
 
         library_output.finish(verified);
@@ -968,7 +1080,7 @@ int main(int argc, char** argv) {
             report.seconds("embedding_verifier", embedding_verifier_seconds);
         }
         if (require_decode) {
-            report.seconds("decode_prover", decode_prover_stats.prover_time);
+            report.seconds("decode_prover", decode_prover_seconds);
             report.seconds("decode_verifier", decode_verifier_seconds);
         }
 
@@ -983,7 +1095,7 @@ int main(int argc, char** argv) {
             report.field("lookup linked", link_verified ? "YES" : "NO");
         }
         if (require_decode) {
-            report.field("decode verified", decode_verifier_claim && gkr_verified ? "YES" : "NO");
+            report.field("decode verified", decode_verified && gkr_verified ? "YES" : "NO");
             report.field("shift verified", shift_verified ? "YES" : "NO");
         }
 
@@ -992,7 +1104,9 @@ int main(int argc, char** argv) {
         report.seconds("prover", role_prover_seconds);
         report.seconds("verifier", role_verifier_seconds);
         report.field("proof_payload_bytes", proof_payload_bytes);
-        report.field("scope", require_decode ? "embedding-ape-complete-gkr-lookup-greedy-shift" :
+        report.field("scope", require_decode ? (explicit_generation_mask
+                ? "embedding-ape-complete-gkr-lookup-masked-greedy-shift"
+                : "embedding-ape-complete-gkr-lookup-greedy-shift") :
             full_inference ? "embedding-ape-complete-gkr-lookup" : "transformer-components");
         if (!online_profile_file.empty()) {
             std::ofstream profile(online_profile_file);

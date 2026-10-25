@@ -3,6 +3,7 @@
 
 #include "common/compiled_mle.hpp"
 #include <string>
+#include <vector>
 
 struct InputTensorViewSpec
 {
@@ -11,7 +12,10 @@ struct InputTensorViewSpec
     std::size_t rows = 0;
     std::size_t columns = 0;
     std::size_t row_stride = 0;
+    // Nonempty selects absolute input-vector row starts instead of affine rows.
+    std::vector<std::size_t> row_offsets;
     void validate() const;
+    std::size_t rowOffset(std::size_t row) const;
     int rowBits() const;
     int columnBits() const;
     int localBits() const { return rowBits() + columnBits(); }
