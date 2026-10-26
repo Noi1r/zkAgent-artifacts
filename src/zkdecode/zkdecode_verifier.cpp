@@ -341,3 +341,19 @@ bool checkDecodeShiftConsistency(const std::vector<int> &tokens, std::size_t pro
         return false;
     return std::equal(outputs.begin(), outputs.end(), tokens.begin() + prompt);
 }
+
+bool checkDecodeShiftConsistency(const std::vector<int> &tokens,
+                                 const std::vector<std::size_t> &positions,
+                                 const std::vector<int> &outputs)
+{
+    if (positions.empty() || outputs.size() != positions.size())
+        return false;
+    for (std::size_t row = 0; row < positions.size(); ++row)
+    {
+        const auto position = positions[row];
+        if (position == 0 || position >= tokens.size() ||
+            (row != 0 && position <= positions[row - 1]) || outputs[row] != tokens[position])
+            return false;
+    }
+    return true;
+}

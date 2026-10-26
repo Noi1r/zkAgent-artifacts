@@ -189,7 +189,8 @@ bash benchmarks/run.sh table6 \
   --model-dir ./model/gpt2-124m \
   --token-file ./demo/weather_tokens.txt \
   --seq-len 152 \
-  --prompt-len 130 \
+  --generation-mask ./demo/weather_generation_mask.txt \
+  --decode-batch-size 32 \
   --threads 32 \
   --cache-dir ./cache \
   --use-cache \
@@ -199,7 +200,7 @@ bash benchmarks/run.sh table6 \
   --model-dir ./model/gpt2-124m \
   --token-file ./demo/coding_tokens.txt \
   --seq-len 143 \
-  --prompt-len 129 \
+  --generation-mask ./demo/coding_generation_mask.txt \
   --threads 32 \
   --cache-dir ./cache \
   --use-cache \
@@ -213,7 +214,8 @@ bash benchmarks/run.sh table6 \
   --model-dir ./model/gpt2-124m \
   --token-file ./demo/weather_tokens.txt \
   --seq-len 152 \
-  --prompt-len 130 \
+  --generation-mask ./demo/weather_generation_mask.txt \
+  --decode-batch-size 32 \
   --threads 32 \
   --cache-dir ./cache \
   --use-cache \
@@ -223,7 +225,7 @@ bash benchmarks/run.sh table6 \
   --model-dir ./model/gpt2-124m \
   --token-file ./demo/coding_tokens.txt \
   --seq-len 143 \
-  --prompt-len 129 \
+  --generation-mask ./demo/coding_generation_mask.txt \
   --threads 32 \
   --cache-dir ./cache \
   --use-cache \

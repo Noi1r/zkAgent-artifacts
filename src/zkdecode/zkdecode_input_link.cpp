@@ -31,6 +31,14 @@ namespace zkdecode_input_detail
         transcript.append_u64(spec.rows);
         transcript.append_u64(spec.columns);
         transcript.append_u64(spec.row_stride);
+        if (!spec.row_offsets.empty())
+        {
+            // "INDEXED2" separates indexed views while preserving affine transcripts.
+            transcript.append_u64(0x494e444558454432ULL);
+            transcript.append_u64(spec.row_offsets.size());
+            for (const auto row : spec.row_offsets)
+                transcript.append_u64(row);
+        }
         std::uint64_t scale_bits;
         static_assert(sizeof(scale_bits) == sizeof(context.logit_scale), "IEEE double required");
         std::memcpy(&scale_bits, &context.logit_scale, sizeof(scale_bits));
@@ -62,14 +70,14 @@ std::vector<std::vector<ll>> prepareZkDecodeInputWitness(
     const std::vector<Fr> &input, const InputTensorViewSpec &spec, ll bound)
 {
     spec.validate();
-    const auto end = spec.offset + (spec.rows - 1) * spec.row_stride + spec.columns;
+    const auto end = spec.rowOffset(spec.rows - 1) + spec.columns;
     if (input.size() > spec.inputDomain() || input.size() < end || bound <= 0 || bound >= (ll(1) << 125))
         throw std::invalid_argument("invalid decode input witness dimensions/bound");
     std::vector<std::vector<ll>> rows(spec.rows, std::vector<ll>(spec.columns));
     for (std::size_t t = 0; t < spec.rows; ++t)
         for (std::size_t j = 0; j < spec.columns; ++j)
         {
-            const Fr &field = input[spec.offset + t * spec.row_stride + j];
+            const Fr &field = input[spec.rowOffset(t) + j];
             ll value;
             if (zkagent_integer::decode_nonnegative_i128(field, bound - 1, value))
                 rows[t][j] = value;

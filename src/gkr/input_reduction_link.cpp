@@ -202,7 +202,7 @@ namespace
             for (std::size_t t = 0; t < spec.rows; ++t)
                 for (std::size_t j = 0; j < spec.columns; ++j)
                 {
-                    const std::size_t index = spec.offset + t * spec.row_stride + j;
+                    const std::size_t index = spec.rowOffset(t) + j;
                     mark_active(index, active_bits, active_indices);
                     coefficients[index] += rows[t] * columns[j];
                 }
