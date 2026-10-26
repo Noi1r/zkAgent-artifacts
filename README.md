@@ -165,15 +165,17 @@ Circuit/plan construction is included in that total.
 The SHOUT runs built fresh caches; the LogUp-GKR runs reused them, so their
 total runtimes include different preparation work.
 
-### Table 6: Greedy inference core
+### Table 6: Inference and tool benchmarks
 
-Run the greedy inference proof on either bundled demo transcript. Cached
+Run the inference proof and corresponding tool benchmarks for either bundled demo. Cached
 preparation is reused on later runs. Regenerate cached preparation after
 changing model weights, quantization, or circuit layout.
 
 If Table 1 has not been run and the embedding cache is missing, Table 6 performs
 preprocessing automatically. Its time is included in `Preparation: total`;
 add `--debug` to display the preprocessing messages.
+
+Reference resources for the inference stage:
 
 | Workload | Backend | Cache | Wall (s) | Peak RSS (GiB) | Circuit/plan (s, included) |
 |---|---|---|---:|---:|---:|
@@ -182,63 +184,26 @@ add `--debug` to display the preprocessing messages.
 | Weather | LogUp-GKR | hit | 249.99 | 208.98 | 0.00 |
 | Coding | LogUp-GKR | hit | 247.54 | 208.96 | 0.00
 
+Before running, follow the setup instructions for [Coral](tools/coral/README.md),
+[Weather zkTLS](tools/zktls/weather-zktls-example/README.md), and
+[Code zkVM](tools/py2zkvm/README.md), as needed for the selected workload.
+
 #### SHOUT
 
 ```bash
-bash benchmarks/run.sh table6 \
-  --model-dir ./model/gpt2-124m \
-  --token-file ./demo/weather_tokens.txt \
-  --seq-len 152 \
-  --generation-mask ./demo/weather_generation_mask.txt \
-  --decode-batch-size 32 \
-  --threads 32 \
-  --cache-dir ./cache \
-  --use-cache \
-  --lookup-backend shout
-
-bash benchmarks/run.sh table6 \
-  --model-dir ./model/gpt2-124m \
-  --token-file ./demo/coding_tokens.txt \
-  --seq-len 143 \
-  --generation-mask ./demo/coding_generation_mask.txt \
-  --threads 32 \
-  --cache-dir ./cache \
-  --use-cache \
-  --lookup-backend shout
+bash benchmarks/run.sh table6 --workload weather --with-tools --lookup-backend shout
+bash benchmarks/run.sh table6 --workload coding --with-tools --lookup-backend shout
 ```
 
 #### LogUp-GKR
 
 ```bash
-bash benchmarks/run.sh table6 \
-  --model-dir ./model/gpt2-124m \
-  --token-file ./demo/weather_tokens.txt \
-  --seq-len 152 \
-  --generation-mask ./demo/weather_generation_mask.txt \
-  --decode-batch-size 32 \
-  --threads 32 \
-  --cache-dir ./cache \
-  --use-cache \
-  --lookup-backend logup-gkr
-
-bash benchmarks/run.sh table6 \
-  --model-dir ./model/gpt2-124m \
-  --token-file ./demo/coding_tokens.txt \
-  --seq-len 143 \
-  --generation-mask ./demo/coding_generation_mask.txt \
-  --threads 32 \
-  --cache-dir ./cache \
-  --use-cache \
-  --lookup-backend logup-gkr
+bash benchmarks/run.sh table6 --workload weather --with-tools --lookup-backend logup-gkr
+bash benchmarks/run.sh table6 --workload coding --with-tools --lookup-backend logup-gkr
 ```
 
-#### Tool execution
-
-Run the Table 6 tools separately by following their own setup and execution instructions:
-
-- [Coral](tools/coral/README.md): JSON format proofs for tool calls.
-- [Weather zkTLS](tools/zktls/weather-zktls-example/README.md): weather API attestations.
-- [Code zkVM](tools/py2zkvm/README.md): Python-to-SP1 execution proofs.
+Omit `--with-tools` to run inference only. Logs and `summary.md`/`summary.json`
+are saved under `benchmark_logs/table6/`.
 
 ## 5. Additional evaluations
 

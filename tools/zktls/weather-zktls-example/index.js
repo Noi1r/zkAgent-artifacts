@@ -1,11 +1,26 @@
 import { PrimusCoreTLS } from "@primuslabs/zktls-core-sdk";
 import { configDotenv } from "dotenv";
+import { writeFileSync } from "node:fs";
+import { format } from "node:util";
 
 configDotenv();
 
 
 const appId = process.env.APP_ID || "0xd5a39048d42a3373a4d69f4b2d90d6e39a108eeb";
 const appSecret = process.env.APP_SECRET || "0xdfcdf3ed38bf778ffbe9fb497552aaacc7070c735503757d6a0ec51e8712a112";
+
+const privateLogValues = [appId, appSecret].filter(value => typeof value === "string" && value.length > 0)
+    .sort((a, b) => b.length - a.length);
+for (const method of ["log", "info", "warn", "error", "debug"]) {
+    const original = console[method].bind(console);
+    console[method] = (...args) => {
+        let message = format(...args);
+        // The SDK logs its signed authentication request; omit that diagnostic entirely.
+        if (/^\s*signedAttRequest====/.test(message)) return;
+        for (const value of privateLogValues) message = message.split(value).join("[REDACTED]");
+        original(message);
+    };
+}
 
 const DEFAULT_CITY = "Shanghai";
 const DEFAULT_LATITUDE = 31.2222;
@@ -75,7 +90,7 @@ async function getWeatherWithProof(zkTLS, latitude, longitude, city) {
     console.log(`Weather attestation generation time: ${weatherProveMs}ms`);
 
     const weatherVerifyStart = Date.now();
-    const verifyResult = zkTLS.verifyAttestation(attestation);
+    const verifyResult = (await zkTLS.verifyAttestation(attestation)) === true;
     const weatherVerifyMs = Date.now() - weatherVerifyStart;
     console.log("Weather attestation verification result:", verifyResult ? "✓ passed" : "✗ failed");
     console.log(`Weather attestation verification time: ${weatherVerifyMs}ms`);
@@ -123,6 +138,19 @@ async function main() {
 
         const result = await proveWeatherData(city, latitude, longitude);
 
+        if (process.env.BENCHMARK_RESULT_PATH) {
+            writeFileSync(process.env.BENCHMARK_RESULT_PATH, JSON.stringify({
+                component: "zktls",
+                verified: Boolean(result.verified),
+                prove_ms: result.proveTimeMs,
+                verify_ms: result.verifyTimeMs,
+                proof_size_bytes: result.proofSizeBytes,
+                city: result.city,
+                latitude: result.coordinates.latitude,
+                longitude: result.coordinates.longitude
+            }, null, 2) + "\n");
+        }
+
         console.log(`\n${"=".repeat(60)}`);
         console.log("Attestation generation complete!");
         console.log(`${"=".repeat(60)}`);
@@ -134,12 +162,12 @@ async function main() {
         console.log(`Proof size:  ${result.proofSizeBytes} bytes (${(result.proofSizeBytes / 1024).toFixed(2)} KB)`);
         console.log(`\nThis attestation can prove to third parties that the weather data truly originates from the Open-Meteo API`);
 
+        process.exit(result.verified ? 0 : 1);
+
     } catch (error) {
         console.error("Error:", error.message);
         process.exit(1);
     }
-
-    process.exit(0);
 }
 
 main();
