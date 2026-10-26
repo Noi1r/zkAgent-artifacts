@@ -1,0 +1,15 @@
+root = { SOI ~ ws ~ "{" ~ ws ~ (action_field ~ ws ~ "," ~ ws ~ code_field | code_field ~ ws ~ "," ~ ws ~ action_field) ~ ws ~ "}" ~ ws ~ EOI }
+
+ws = { (space | tab | cr | lf)* }
+space = { " " }
+tab = { "\t" }
+cr = { "\r" }
+lf = { "\n" }
+
+action_field = { "\"action\"" ~ ws ~ ":" ~ ws ~ "\"code\"" }
+code_field = { "\"code\"" ~ ws ~ ":" ~ ws ~ json_string }
+
+json_string = { "\"" ~ json_char* ~ "\"" }
+json_char = { unescaped | escape }
+unescaped = { ' '..'!' | '#'..'[' | ']'..'~' }
+escape = { "\\" ~ ("\"" | "\\" | "/" | "b" | "f" | "n" | "r" | "t" | ("u" ~ ASCII_HEX_DIGIT ~ ASCII_HEX_DIGIT ~ ASCII_HEX_DIGIT ~ ASCII_HEX_DIGIT)) }

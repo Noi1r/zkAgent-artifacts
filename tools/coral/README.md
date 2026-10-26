@@ -5,9 +5,6 @@ Coral generates zero-knowledge proofs that a committed document is consistent
 with a public context-free grammar. The system is described in our paper:
 [Coral: Fast Succinct Non-Interactive Zero-Knowledge CFG Proofs](https://eprint.iacr.org/2025/1420).
 
-This README focuses on proving and verifying a JSON document with the provided
-JSON grammar.
-
 ## Prerequisites
 
 - Rust toolchain with `cargo`.
@@ -31,14 +28,14 @@ cargo build --release --locked
 ## Prove + Verify a JSON Document
 
 
-Run the end-to-end flow (commit + prove + verify) using the JSON grammar:
+Run the end-to-end flow (commit + prove + verify) using the corresponding tool grammar:
 
 ```bash
 cargo run --release -- \
-  --e2e -d tests/test_docs/json/weather.json -g grammars/json.pest -b 100
+  --e2e -d tests/test_docs/json/weather.json -g grammars/weather.pest -b 100
   
 cargo run --release -- \
-  --e2e -d tests/test_docs/json/code.json -g grammars/json.pest -b 100
+  --e2e -d tests/test_docs/json/code.json -g grammars/coding.pest -b 100
 ```
 
 On success, Coral emits:

@@ -171,6 +171,10 @@ Run the inference proof and corresponding tool benchmarks for either bundled dem
 preparation is reused on later runs. Regenerate cached preparation after
 changing model weights, quantization, or circuit layout.
 
+The tool inputs match the generated call in each bundled transcript: Shanghai
+for Weather and `print(7 + 3)` for Coding. Coral uses workload-specific grammars;
+the Coding runner also checks that SP1's public result matches the observation.
+
 If Table 1 has not been run and the embedding cache is missing, Table 6 performs
 preprocessing automatically. Its time is included in `Preparation: total`;
 add `--debug` to display the preprocessing messages.
