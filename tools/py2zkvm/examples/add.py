@@ -1,2 +1,2 @@
 def add() -> int:
-    return 5 + 6
+    return 7 + 3

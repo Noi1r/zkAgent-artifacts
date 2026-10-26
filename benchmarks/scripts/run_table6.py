@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Run the bundled Table 6 inference and optional independent tool benchmarks."""
 
 import argparse
 from datetime import datetime, timezone
@@ -14,14 +13,17 @@ import subprocess
 import sys
 import time
 
+from table6_inputs import check_tool_inputs
+
 
 ROOT = Path(__file__).resolve().parents[2]
 CORAL = ROOT / "tools/coral"
 PY2ZKVM = ROOT / "tools/py2zkvm"
 ZKTLS = ROOT / "tools/zktls/weather-zktls-example"
 WORKLOADS = {
-    "weather": {"length": 152, "decode_batch": 32, "tool": "zktls", "document": "weather.json"},
-    "coding": {"length": 143, "decode_batch": 0, "tool": "sp1", "document": "code.json"},
+    "weather": {"length": 152, "decode_batch": 32, "tool": "zktls", "document": "weather.json",
+                "grammar": "weather.pest", "city": "Shanghai", "latitude": 31.2222, "longitude": 121.4581},
+    "coding": {"length": 143, "decode_batch": 0, "tool": "sp1", "document": "code.json", "grammar": "coding.pest"},
 }
 
 
@@ -38,7 +40,7 @@ def positive_int(value):
 
 
 def parse_args(argv=None):
-    parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
+    parser = argparse.ArgumentParser(description="Run the bundled Table 6 inference and optional tool benchmarks.", allow_abbrev=False)
     parser.add_argument("--workload", type=str.lower, choices=WORKLOADS, required=True)
     parser.add_argument("--with-tools", action="store_true", help="also run Coral and zkTLS (weather) or SP1 (coding)")
     parser.add_argument("--skip-inference", action="store_true", help="with --with-tools, run only the tool components")
@@ -53,7 +55,6 @@ def parse_args(argv=None):
         parser.error("--skip-inference requires --with-tools")
     if args.skip_inference and extra:
         parser.error("--skip-inference does not accept extra inference arguments")
-    # Presets fix the transcript and relation; legacy invocation supports custom inputs.
     reserved = {"--token-file", "--seq-len", "--prompt-len", "--generation-mask", "--proof-profile",
                 "--prepare-circuit-only", "--witness-only", "--prepare-lookup-routing-only"}
     for item in extra:
@@ -88,7 +89,6 @@ def preflight(args, paths):
     if args.workload == "weather":
         check(shutil.which("node"), "Missing Node.js; follow tools/zktls/weather-zktls-example/README.md")
         if shutil.which("node"):
-            # Resolve the SDK without loading its native code during preflight.
             script = ("const {createRequire} = await import('node:module'); "
                       "createRequire(import.meta.url).resolve('@primuslabs/zktls-core-sdk'); "
                       "const {configDotenv} = await import('dotenv'); configDotenv({quiet:true}); "
@@ -117,7 +117,6 @@ def preflight(args, paths):
                                          cwd=PY2ZKVM, capture_output=True, text=True)
                 compatible = version.returncode == 0 and re.search(r"\b5\.2\.4\b", version.stdout + version.stderr)
                 if version.returncode == 0 and not compatible:
-                    # Official 5.2.4 binaries report a Git hash rather than SemVer.
                     help_result = subprocess.run(["cargo", "+1.94.0", "prove", "build", "--help"],
                                                  cwd=PY2ZKVM, capture_output=True, text=True)
                     compatible = help_result.returncode == 0 and re.search(
@@ -128,7 +127,6 @@ def preflight(args, paths):
 
 
 def run_command(command, cwd, directory, env=None):
-    """Keep process wall time separate from the tool's own prove/verify timers."""
     directory.mkdir(parents=True, exist_ok=True)
     log = directory / "run.log"
     resource = directory / "resources.json"
@@ -216,7 +214,6 @@ def metrics(name, directory, result):
             raise ValueError("Invalid zkTLS proof size")
     if data["proof_size_bytes"] <= 0:
         raise ValueError("Empty proof payload")
-    # A failed process must never inherit success from an earlier log line.
     data["verified"] = data["verified"] and result["exit_code"] == 0
     return data
 
@@ -256,7 +253,7 @@ def main(argv=None):
              "mask": ROOT / f"demo/{args.workload}_generation_mask.txt",
              "coral": absolute(os.environ.get("CORAL_BIN", str(CORAL / "target/release/coral"))),
              "ptau": ptau, "document": CORAL / "tests/test_docs/json" / spec["document"],
-             "grammar": CORAL / "grammars/json.pest",
+             "grammar": CORAL / "grammars" / spec["grammar"],
              "py2zkvm": absolute(os.environ.get("PY2ZKVM_BIN", str(PY2ZKVM / "py2zkvm/target/release/py2zkvm"))),
              "program": PY2ZKVM / "examples/add.py"}
     names = ["inference"] + (["coral", spec["tool"]] if args.with_tools else [])
@@ -270,6 +267,11 @@ def main(argv=None):
     exit_code = 1
     try:
         summary["errors"] = preflight(args, paths)
+        if args.with_tools and not summary["errors"]:
+            try:
+                summary["tool_inputs"] = check_tool_inputs(ROOT, args.workload, spec, paths)
+            except (OSError, ValueError, SyntaxError, KeyError, TypeError) as error:
+                summary["errors"].append(f"Tool input consistency check failed: {error}")
         if summary["errors"]:
             summary["status"] = "BLOCKED"
             for error in summary["errors"]:
@@ -295,11 +297,10 @@ def main(argv=None):
                 command = [paths["coral"], "--e2e", "-d", paths["document"], "-g", paths["grammar"], "-b", "100"]
                 cwd = directory
             elif name == "zktls":
-                # Matches the bundled Coral weather request; live weather is independently attested.
-                command, cwd = ["node", "index.js", "39.9042", "116.4074", "Beijing"], ZKTLS
+                command, cwd = ["node", "index.js", str(spec["latitude"]), str(spec["longitude"]), spec["city"]], ZKTLS
                 env = {"BENCHMARK_RESULT_PATH": str(directory / "result.json")}
-                summary["weather_request"] = {"city": "Beijing", "latitude": 39.9042, "longitude": 116.4074,
-                                               "response": "live Open-Meteo response"}
+                summary["weather_request"] = {"city": spec["city"], "latitude": spec["latitude"],
+                                               "longitude": spec["longitude"], "response": "live Open-Meteo response"}
             else:
                 project = directory / "project"
                 prepare = run_command([paths["py2zkvm"], "transpile", "-i", paths["program"],
@@ -316,6 +317,10 @@ def main(argv=None):
             stage.update(result)
             try:
                 stage.update(metrics(name, directory, result))
+                if name == "sp1" and stage["verified"]:
+                    if (re.fullmatch(r"-?\d+", stage["output"]) is None
+                            or int(stage["output"]) != summary["tool_inputs"]["expected_output"]):
+                        raise ValueError("SP1 public output does not match the coding observation")
             except (OSError, ValueError, KeyError, TypeError) as error:
                 stage.update(verified=False, error=str(error))
             stage["status"] = "PASS" if stage.get("verified") is True else "FAIL"
