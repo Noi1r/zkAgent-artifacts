@@ -5,10 +5,11 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "postinstall": "node patch-sdk-signer.cjs"
   },
   "dependencies": {
-    "@primuslabs/zktls-core-sdk": "^0.2.2",
+    "@primuslabs/zktls-core-sdk": "0.2.11",
     "dotenv": "^17.2.3",
     "tslib": "^2.6.2"
   }

@@ -165,15 +165,17 @@ Circuit/plan construction is included in that total.
 The SHOUT runs built fresh caches; the LogUp-GKR runs reused them, so their
 total runtimes include different preparation work.
 
-### Table 6: Greedy inference core
+### Table 6: Inference and tool benchmarks
 
-Run the greedy inference proof on either bundled demo transcript. Cached
+Run the inference proof and corresponding tool benchmarks for either bundled demo. Cached
 preparation is reused on later runs. Regenerate cached preparation after
 changing model weights, quantization, or circuit layout.
 
 If Table 1 has not been run and the embedding cache is missing, Table 6 performs
 preprocessing automatically. Its time is included in `Preparation: total`;
 add `--debug` to display the preprocessing messages.
+
+Reference resources for the inference stage:
 
 | Workload | Backend | Cache | Wall (s) | Peak RSS (GiB) | Circuit/plan (s, included) |
 |---|---|---|---:|---:|---:|
@@ -182,63 +184,72 @@ add `--debug` to display the preprocessing messages.
 | Weather | LogUp-GKR | hit | 249.99 | 208.98 | 0.00 |
 | Coding | LogUp-GKR | hit | 247.54 | 208.96 | 0.00
 
+#### Tool setup
+
+Run these commands from the repository root. Set up Coral for both workloads,
+then zkTLS for Weather or SP1 for Coding.
+
+**Rust and Coral**
+
+```bash
+if ! command -v rustup >/dev/null 2>&1; then
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+fi
+source "$HOME/.cargo/env"
+rustup toolchain install 1.94.0 --profile minimal
+
+cargo +1.94.0 build --release --locked --manifest-path tools/coral/Cargo.toml
+curl -fL -C - -o tools/coral/ppot_0080_23.ptau \
+  https://pse-trusted-setup-ppot.s3.eu-central-1.amazonaws.com/pot28_0080/ppot_0080_23.ptau
+```
+
+The Coral parameter file is approximately 9 GB. If it is already available
+elsewhere, set `CORAL_PTAU` to its path instead of downloading it again.
+
+**Weather: zkTLS**
+
+Install [Node.js and npm](https://nodejs.org/en/download) if needed
+(tested with Node.js 20), then run:
+
+```bash
+npm ci --prefix tools/zktls/weather-zktls-example
+if [ ! -f tools/zktls/weather-zktls-example/.env ]; then
+  cp tools/zktls/weather-zktls-example/.env.example tools/zktls/weather-zktls-example/.env
+fi
+```
+
+Edit `tools/zktls/weather-zktls-example/.env` and set valid `APP_ID` and
+`APP_SECRET` values before running Weather. Exporting both variables in the
+current shell is also supported.
+
+**Coding: SP1**
+
+```bash
+curl -fsSL https://sp1up.succinct.xyz | bash
+export PATH="$HOME/.sp1/bin:$HOME/.cargo/bin:$PATH"
+sp1up -v 5.2.4
+
+cargo +1.94.0 install depyler --version 3.25.0 --locked
+cargo +1.94.0 build --release --manifest-path tools/py2zkvm/py2zkvm/Cargo.toml
+```
+
 #### SHOUT
 
 ```bash
-bash benchmarks/run.sh table6 \
-  --model-dir ./model/gpt2-124m \
-  --token-file ./demo/weather_tokens.txt \
-  --seq-len 152 \
-  --generation-mask ./demo/weather_generation_mask.txt \
-  --decode-batch-size 32 \
-  --threads 32 \
-  --cache-dir ./cache \
-  --use-cache \
-  --lookup-backend shout
-
-bash benchmarks/run.sh table6 \
-  --model-dir ./model/gpt2-124m \
-  --token-file ./demo/coding_tokens.txt \
-  --seq-len 143 \
-  --generation-mask ./demo/coding_generation_mask.txt \
-  --threads 32 \
-  --cache-dir ./cache \
-  --use-cache \
-  --lookup-backend shout
+bash benchmarks/run.sh table6 --workload weather --with-tools --lookup-backend shout
+bash benchmarks/run.sh table6 --workload coding --with-tools --lookup-backend shout
 ```
 
 #### LogUp-GKR
 
 ```bash
-bash benchmarks/run.sh table6 \
-  --model-dir ./model/gpt2-124m \
-  --token-file ./demo/weather_tokens.txt \
-  --seq-len 152 \
-  --generation-mask ./demo/weather_generation_mask.txt \
-  --decode-batch-size 32 \
-  --threads 32 \
-  --cache-dir ./cache \
-  --use-cache \
-  --lookup-backend logup-gkr
-
-bash benchmarks/run.sh table6 \
-  --model-dir ./model/gpt2-124m \
-  --token-file ./demo/coding_tokens.txt \
-  --seq-len 143 \
-  --generation-mask ./demo/coding_generation_mask.txt \
-  --threads 32 \
-  --cache-dir ./cache \
-  --use-cache \
-  --lookup-backend logup-gkr
+bash benchmarks/run.sh table6 --workload weather --with-tools --lookup-backend logup-gkr
+bash benchmarks/run.sh table6 --workload coding --with-tools --lookup-backend logup-gkr
 ```
 
-#### Tool execution
-
-Run the Table 6 tools separately by following their own setup and execution instructions:
-
-- [Coral](tools/coral/README.md): JSON format proofs for tool calls.
-- [Weather zkTLS](tools/zktls/weather-zktls-example/README.md): weather API attestations.
-- [Code zkVM](tools/py2zkvm/README.md): Python-to-SP1 execution proofs.
+Omit `--with-tools` to run inference only; add `--skip-inference` with `--with-tools`
+to run only the tool components. Logs and `summary.md`/`summary.json`
+are saved under `benchmark_logs/table6/`.
 
 ## 5. Additional evaluations
 
