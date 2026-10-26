@@ -16,8 +16,12 @@ Usage: bash benchmarks/run.sh <table1|table2|table3|table4|table5|table6|decode>
           then Llama-2-7B RoPE scale (T=512, d=128, H=32).
           Always runs both methods with one thread.
   table5  Transformer component benchmark; reads bundled tokens from demo/table5.
-  table6  Greedy inference core (NOT the complete tool-authenticated Table 6).
-          Pass benchmark_inference arguments; no arguments prints its help.
+  table6  Greedy inference core; existing benchmark_inference arguments still work.
+          --workload weather|coding selects a bundled Table 6 configuration.
+          Add --with-tools to run Coral and the workload's zkTLS/SP1 component.
+          Add --skip-inference with --with-tools to run only the tool components.
+          No arguments prints benchmark_inference help.
+          Pipeline help: python3 benchmarks/scripts/run_table6.py --help
   decode  Fixed zkDecode benchmark: N=50257, T=512, k=40, both backends.
 
 Table 5 and decode use cmake-build-release. Other entries accept BUILD_DIR
@@ -99,6 +103,13 @@ case "${CASE}" in
         exec python3 "${ROOT}/benchmarks/scripts/run_decode_benchmark.py"
         ;;
     table6)
+        for arg in "$@"; do
+            case "${arg}" in
+                --workload|--workload=*|--with-tools|--skip-inference|--output-dir|--output-dir=*|--coral-ptau|--coral-ptau=*)
+                    exec python3 "${ROOT}/benchmarks/scripts/run_table6.py" "$@"
+                    ;;
+            esac
+        done
         BIN=benchmark_inference
         require_binary "${BIN}"
         if [[ $# -eq 0 ]]; then exec "${BUILD_DIR}/src/${BIN}" --help; fi
